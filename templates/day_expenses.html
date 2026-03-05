@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}Expenses - {{ expense_date }}{% endblock %}
+
+{% block content %}
+<div class="day-expenses-page">
+    <div class="page-header">
+        <h2><i class="fas fa-calendar-day"></i> Expenses for {{ expense_date }}</h2>
+        <a href="{{ url_for('expenses.expense_calendar') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Calendar
+        </a>
+    </div>
+
+    <div class="total-card">
+        <h3>Total Spent</h3>
+        <div class="total-amount">₹{{ "%.2f"|format(total) }}</div>
+    </div>
+
+    <div class="card expenses-detail-card">
+        <h3><i class="fas fa-list"></i> Expense Details</h3>
+        {% if expenses %}
+        <table class="expenses-table">
+            <thead>
+                <tr>
+                    <th>Category</th>
+                    <th>Description</th>
+                    <th>Amount</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for expense in expenses %}
+                <tr>
+                    <td><span class="category-badge">{{ expense.category_name }}</span></td>
+                    <td>{{ expense.description }}</td>
+                    <td class="amount-cell">₹{{ "%.2f"|format(expense.amount) }}</td>
+                    <td>
+                        <a href="{{ url_for('expenses.delete_expense', expense_id=expense.id) }}" 
+                           class="btn-icon delete" onclick="return confirm('Delete this expense?')">
+                            <i class="fas fa-trash"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state">
+            <i class="fas fa-receipt"></i>
+            <p>No expenses recorded for this day</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+.day-expenses-page { max-width: 900px; margin: 0 auto; }
+.total-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 10px; padding: 2rem; text-align: center; margin-bottom: 2rem; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+.total-card h3 { font-size: 1rem; opacity: 0.9; margin-bottom: 0.5rem; }
+.total-amount { font-size: 2.5rem; font-weight: bold; }
+.expenses-table { width: 100%; border-collapse: collapse; }
+.expenses-table th { background: #f7fafc; padding: 1rem; text-align: left; font-weight: 600; color: #4a5568; border-bottom: 2px solid #e2e8f0; }
+.expenses-table td { padding: 1rem; border-bottom: 1px solid #e2e8f0; }
+.category-badge { background: #e2e8f0; padding: 0.25rem 0.75rem; border-radius: 15px; font-size: 0.9rem; font-weight: 600; color: #4a5568; }
+.amount-cell { font-weight: bold; color: #2d3748; font-size: 1.1rem; }
+.btn-icon.delete { color: #e53e3e; cursor: pointer; font-size: 1.2rem; }
+</style>
+{% endblock %}

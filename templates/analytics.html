@@ -1,0 +1,512 @@
+{% extends "base.html" %}
+
+{% block title %}Analytics - Personal Productivity Tracker{% endblock %}
+
+{% block content %}
+<div class="analytics-page">
+    <div class="page-header">
+        <h2><i class="fas fa-chart-bar"></i> Analytics & Insights</h2>
+    </div>
+
+    <div class="analytics-grid">
+        <!-- Streaks Section -->
+        <div class="card streaks-analytics">
+            <h3><i class="fas fa-fire"></i> Current Streaks</h3>
+            <div class="streaks-container">
+                {% for streak in streaks %}
+                <div class="streak-row">
+                    <div class="streak-info">
+                        <span class="streak-task">{{ streak.name }}</span>
+                        <div class="streak-stats">
+                            <span class="current-streak">{{ streak.current_streak or 0 }} days current</span>
+                            <span class="longest-streak">{{ streak.longest_streak or 0 }} days best</span>
+                        </div>
+                    </div>
+                    <div class="streak-visual">
+                        <div class="streak-bar">
+                            <div class="streak-progress" 
+                                 style="width: {{ (streak.current_streak or 0) / (streak.longest_streak or 1) * 100 }}%"></div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Completion Rates -->
+        <div class="card completion-analytics">
+            <h3><i class="fas fa-percentage"></i> Completion Rates (Last 30 Days)</h3>
+            <div class="completion-container">
+                {% for stat in completion_stats %}
+                <div class="completion-row">
+                    <div class="task-name">{{ stat.name }}</div>
+                    <div class="completion-bar">
+                        <div class="completion-progress" 
+                             style="width: {{ stat.completion_rate or 0 }}%"></div>
+                        <span class="completion-text">{{ stat.completion_rate or 0 }}%</span>
+                    </div>
+                    <div class="completion-details">
+                        {{ stat.completed_days or 0 }}/{{ stat.total_days or 0 }} days
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Weekly Performance Chart -->
+        <div class="card chart-container">
+            <h3><i class="fas fa-chart-line"></i> Weekly Performance</h3>
+            <canvas id="weeklyChart" width="400" height="200"></canvas>
+            <div class="chart-legend">
+                <span class="legend-item">
+                    <span class="legend-color" style="background: #667eea;"></span>
+                    Daily Completion %
+                </span>
+            </div>
+        </div>
+
+        <!-- Mood vs Productivity -->
+        <div class="card mood-productivity">
+            <h3><i class="fas fa-heart"></i> Mood vs Productivity</h3>
+            <canvas id="moodChart" width="400" height="200"></canvas>
+            <div class="mood-insights">
+                <p class="insight-text">
+                    <i class="fas fa-lightbulb"></i>
+                    Track how your mood affects your productivity to identify patterns.
+                </p>
+            </div>
+        </div>
+
+        <!-- Quick Stats -->
+        <div class="card quick-stats-analytics">
+            <h3><i class="fas fa-tachometer-alt"></i> Quick Stats</h3>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-icon"><i class="fas fa-calendar-check"></i></div>
+                    <div class="stat-info">
+                        <span class="stat-number">{{ streaks|length }}</span>
+                        <span class="stat-label">Active Habits</span>
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-icon"><i class="fas fa-fire"></i></div>
+                    <div class="stat-info">
+                        <span class="stat-number">
+                            {% set max_streak = streaks|map(attribute='current_streak')|max %}
+                            {{ max_streak or 0 }}
+                        </span>
+                        <span class="stat-label">Longest Current Streak</span>
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-icon"><i class="fas fa-trophy"></i></div>
+                    <div class="stat-info">
+                        <span class="stat-number">
+                            {% set avg_completion = completion_stats|map(attribute='completion_rate')|sum / completion_stats|length if completion_stats else 0 %}
+                            {{ "%.1f"|format(avg_completion) }}%
+                        </span>
+                        <span class="stat-label">Average Completion</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Insights -->
+        <div class="card insights-section">
+            <h3><i class="fas fa-brain"></i> Insights & Recommendations</h3>
+            <div class="insights-list">
+                {% set best_habit = completion_stats|selectattr('completion_rate', 'defined')|sort(attribute='completion_rate', reverse=true)|first %}
+                {% if best_habit %}
+                <div class="insight-item success">
+                    <i class="fas fa-star"></i>
+                    <div>
+                        <strong>Best Performing Habit:</strong> {{ best_habit.name }} 
+                        ({{ best_habit.completion_rate }}% completion rate)
+                    </div>
+                </div>
+                {% endif %}
+
+                {% set worst_habit = completion_stats|selectattr('completion_rate', 'defined')|sort(attribute='completion_rate')|first %}
+                {% if worst_habit and worst_habit.completion_rate < 70 %}
+                <div class="insight-item warning">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <div>
+                        <strong>Needs Attention:</strong> {{ worst_habit.name }} 
+                        ({{ worst_habit.completion_rate }}% completion rate)
+                    </div>
+                </div>
+                {% endif %}
+
+                <div class="insight-item info">
+                    <i class="fas fa-info-circle"></i>
+                    <div>
+                        <strong>Tip:</strong> Consistency is key! Try to maintain at least a 70% completion rate for sustainable habits.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Load weekly performance data
+fetch('/analytics/weekly_data')
+    .then(response => response.json())
+    .then(data => {
+        drawWeeklyChart(data);
+    });
+
+// Load mood vs productivity data
+fetch('/analytics/mood_productivity')
+    .then(response => response.json())
+    .then(data => {
+        drawMoodChart(data);
+    });
+
+function drawWeeklyChart(data) {
+    const canvas = document.getElementById('weeklyChart');
+    const ctx = canvas.getContext('2d');
+    
+    // Clear canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    if (data.length === 0) {
+        ctx.fillStyle = '#718096';
+        ctx.font = '16px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('No data available', canvas.width/2, canvas.height/2);
+        return;
+    }
+    
+    const padding = 40;
+    const chartWidth = canvas.width - 2 * padding;
+    const chartHeight = canvas.height - 2 * padding;
+    
+    // Draw axes
+    ctx.strokeStyle = '#e2e8f0';
+    ctx.lineWidth = 1;
+    
+    // Y-axis
+    ctx.beginPath();
+    ctx.moveTo(padding, padding);
+    ctx.lineTo(padding, canvas.height - padding);
+    ctx.stroke();
+    
+    // X-axis
+    ctx.beginPath();
+    ctx.moveTo(padding, canvas.height - padding);
+    ctx.lineTo(canvas.width - padding, canvas.height - padding);
+    ctx.stroke();
+    
+    // Draw data
+    const maxValue = 100;
+    const stepX = chartWidth / (data.length - 1);
+    
+    ctx.strokeStyle = '#667eea';
+    ctx.fillStyle = '#667eea';
+    ctx.lineWidth = 2;
+    
+    ctx.beginPath();
+    data.forEach((point, index) => {
+        const x = padding + index * stepX;
+        const y = canvas.height - padding - (point.percentage / maxValue) * chartHeight;
+        
+        if (index === 0) {
+            ctx.moveTo(x, y);
+        } else {
+            ctx.lineTo(x, y);
+        }
+        
+        // Draw point
+        ctx.beginPath();
+        ctx.arc(x, y, 4, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.beginPath();
+    });
+    ctx.stroke();
+    
+    // Draw labels
+    ctx.fillStyle = '#4a5568';
+    ctx.font = '12px Arial';
+    ctx.textAlign = 'center';
+    
+    data.forEach((point, index) => {
+        const x = padding + index * stepX;
+        const date = new Date(point.date);
+        const label = date.toLocaleDateString('en-US', { weekday: 'short' });
+        ctx.fillText(label, x, canvas.height - padding + 20);
+    });
+}
+
+function drawMoodChart(data) {
+    const canvas = document.getElementById('moodChart');
+    const ctx = canvas.getContext('2d');
+    
+    // Clear canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    if (data.length === 0) {
+        ctx.fillStyle = '#718096';
+        ctx.font = '16px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('No mood data available', canvas.width/2, canvas.height/2);
+        return;
+    }
+    
+    const padding = 40;
+    const chartWidth = canvas.width - 2 * padding;
+    const chartHeight = canvas.height - 2 * padding;
+    const barWidth = chartWidth / data.length;
+    
+    // Draw bars
+    data.forEach((item, index) => {
+        const barHeight = (item.completion_rate / 100) * chartHeight;
+        const x = padding + index * barWidth;
+        const y = canvas.height - padding - barHeight;
+        
+        // Color based on mood
+        const colors = {
+            'Happy': '#48bb78',
+            'Excited': '#ed8936',
+            'Neutral': '#718096',
+            'Stressed': '#f56565',
+            'Sad': '#9f7aea'
+        };
+        
+        ctx.fillStyle = colors[item.mood] || '#718096';
+        ctx.fillRect(x + 5, y, barWidth - 10, barHeight);
+        
+        // Draw label
+        ctx.fillStyle = '#4a5568';
+        ctx.font = '12px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(item.mood, x + barWidth/2, canvas.height - padding + 20);
+        
+        // Draw value
+        ctx.fillText(`${item.completion_rate.toFixed(1)}%`, x + barWidth/2, y - 5);
+    });
+}
+</script>
+
+<style>
+.analytics-page {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.analytics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 1.5rem;
+}
+
+.streaks-analytics,
+.completion-analytics {
+    grid-column: span 2;
+}
+
+.streak-row,
+.completion-row {
+    display: flex;
+    align-items: center;
+    padding: 1rem;
+    border-bottom: 1px solid #e2e8f0;
+    gap: 1rem;
+}
+
+.streak-info,
+.task-name {
+    flex: 1;
+}
+
+.streak-task {
+    font-weight: 600;
+    color: #2d3748;
+    display: block;
+}
+
+.streak-stats {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.9rem;
+    color: #718096;
+    margin-top: 0.25rem;
+}
+
+.streak-visual {
+    flex: 2;
+}
+
+.streak-bar,
+.completion-bar {
+    background: #e2e8f0;
+    height: 8px;
+    border-radius: 4px;
+    position: relative;
+    overflow: hidden;
+}
+
+.streak-progress {
+    background: linear-gradient(90deg, #ff6b6b, #ffa500);
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+.completion-progress {
+    background: linear-gradient(90deg, #667eea, #764ba2);
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+.completion-bar {
+    flex: 2;
+    position: relative;
+    margin: 0 1rem;
+}
+
+.completion-text {
+    position: absolute;
+    right: 5px;
+    top: -20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #4a5568;
+}
+
+.completion-details {
+    font-size: 0.9rem;
+    color: #718096;
+    min-width: 80px;
+}
+
+.chart-container canvas {
+    width: 100%;
+    height: 200px;
+}
+
+.chart-legend {
+    display: flex;
+    justify-content: center;
+    margin-top: 1rem;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    color: #4a5568;
+}
+
+.legend-color {
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+}
+
+.mood-insights {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #e2e8f0;
+}
+
+.insight-text {
+    color: #718096;
+    font-style: italic;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+}
+
+.stat-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    background: #f7fafc;
+    border-radius: 8px;
+}
+
+.stat-icon {
+    font-size: 1.5rem;
+    color: #667eea;
+}
+
+.stat-number {
+    display: block;
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #2d3748;
+}
+
+.stat-label {
+    display: block;
+    font-size: 0.8rem;
+    color: #718096;
+}
+
+.insights-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.insight-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 1rem;
+    border-radius: 8px;
+}
+
+.insight-item.success {
+    background: #c6f6d5;
+    color: #22543d;
+}
+
+.insight-item.warning {
+    background: #fef5e7;
+    color: #c05621;
+}
+
+.insight-item.info {
+    background: #e6fffa;
+    color: #234e52;
+}
+
+.insight-item i {
+    margin-top: 0.2rem;
+}
+
+@media (max-width: 768px) {
+    .analytics-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .streaks-analytics,
+    .completion-analytics {
+        grid-column: span 1;
+    }
+    
+    .streak-row,
+    .completion-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+    
+    .completion-bar {
+        width: 100%;
+        margin: 0;
+    }
+}
+</style>
+{% endblock %}

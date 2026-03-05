@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Personal Productivity Tracker{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+    <div class="dashboard-header">
+        <h2><i class="fas fa-calendar-day"></i> Today - {{ today.strftime('%B %d, %Y') }}</h2>
+        <div class="quick-stats">
+            <div class="stat-card">
+                <i class="fas fa-percentage"></i>
+                <span class="stat-value">{{ completion_percentage }}%</span>
+                <span class="stat-label">Completion</span>
+            </div>
+            <div class="stat-card">
+                <i class="fas fa-fire"></i>
+                <span class="stat-value">{{ streaks|length }}</span>
+                <span class="stat-label">Active Streaks</span>
+            </div>
+            <div class="stat-card">
+                <i class="fas fa-clock"></i>
+                <span class="stat-value">{{ focus_sessions }}</span>
+                <span class="stat-label">Focus Sessions</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="dashboard-grid">
+        <div class="card tasks-card">
+            <h3><i class="fas fa-list-check"></i> Today's Tasks</h3>
+            <div class="tasks-list">
+                {% for task in tasks %}
+                <div class="task-item">
+                    <input type="checkbox" 
+                           id="task-{{ task.id }}" 
+                           {% if task.completed %}checked{% endif %}
+                           onchange="toggleTask({{ task.id }}, this.checked)">
+                    <label for="task-{{ task.id }}">
+                        <span class="task-name">{{ task.name }}</span>
+                        <span class="task-category">{{ task.category }}</span>
+                        {% if task.time_fixed %}
+                            <span class="task-time">{{ task.time_fixed }}</span>
+                        {% endif %}
+                    </label>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="card streaks-card">
+            <h3><i class="fas fa-fire"></i> Current Streaks</h3>
+            <div class="streaks-list">
+                {% for streak in streaks %}
+                <div class="streak-item">
+                    <span class="streak-name">{{ streak.name }}</span>
+                    <span class="streak-count">{{ streak.current_streak }} days</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="card quick-actions">
+            <h3><i class="fas fa-bolt"></i> Quick Actions</h3>
+            <div class="action-buttons">
+                <a href="{{ url_for('diary.write_entry') }}" class="btn btn-primary">
+                    <i class="fas fa-pen"></i> 
+                    {% if diary_exists %}Edit Today's Entry{% else %}Write Diary Entry{% endif %}
+                </a>
+                <a href="{{ url_for('timer.timer') }}" class="btn btn-secondary">
+                    <i class="fas fa-play"></i> Start Focus Timer
+                </a>
+                <a href="{{ url_for('timer.daily_status') }}" class="btn btn-tertiary">
+                    <i class="fas fa-heart"></i> Log Daily Status
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleTask(taskId, completed) {
+    fetch('/toggle_task', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            task_id: taskId,
+            completed: completed
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        }
+    });
+}
+</script>
+{% endblock %}

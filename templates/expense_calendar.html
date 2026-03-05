@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}Expense Calendar{% endblock %}
+
+{% block content %}
+<div class="expense-calendar-page">
+    <div class="page-header">
+        <h2><i class="fas fa-calendar-alt"></i> Monthly Expense Calendar</h2>
+        <a href="{{ url_for('expenses.expenses') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Back
+        </a>
+    </div>
+
+    <div class="month-navigation">
+        <a href="{{ url_for('expenses.expense_calendar', year=year, month=month-1 if month > 1 else 12) }}" class="btn btn-secondary">
+            <i class="fas fa-chevron-left"></i> Previous
+        </a>
+        <span class="current-month">{{ month_name }} {{ year }}</span>
+        <a href="{{ url_for('expenses.expense_calendar', year=year, month=month+1 if month < 12 else 1) }}" class="btn btn-secondary">
+            Next <i class="fas fa-chevron-right"></i>
+        </a>
+    </div>
+
+    <div class="monthly-total-card">
+        <h3>Total Expenses for {{ month_name }}</h3>
+        <div class="monthly-total">₹{{ "%.2f"|format(monthly_total) }}</div>
+    </div>
+
+    <div class="calendar-grid">
+        <div class="calendar-header">Sun</div>
+        <div class="calendar-header">Mon</div>
+        <div class="calendar-header">Tue</div>
+        <div class="calendar-header">Wed</div>
+        <div class="calendar-header">Thu</div>
+        <div class="calendar-header">Fri</div>
+        <div class="calendar-header">Sat</div>
+
+        {% set first_day = month_dates[0].weekday() %}
+        {% set offset = 0 if first_day == 6 else first_day + 1 %}
+        
+        {% for i in range(offset) %}
+        <div class="calendar-day empty"></div>
+        {% endfor %}
+
+        {% for date in month_dates %}
+        <div class="calendar-day {% if date == today %}today{% endif %}">
+            <div class="day-number">{{ date.day }}</div>
+            {% set date_str = date.strftime('%Y-%m-%d') %}
+            {% if date_str in daily_totals %}
+            <a href="{{ url_for('expenses.day_expenses', expense_date=date_str) }}" class="day-total">
+                ₹{{ "%.2f"|format(daily_totals[date_str]) }}
+            </a>
+            {% else %}
+            <div class="no-expense">-</div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<style>
+.expense-calendar-page { max-width: 1000px; margin: 0 auto; }
+.month-navigation { display: flex; justify-content: space-between; align-items: center; margin: 2rem 0; }
+.current-month { font-size: 1.5rem; font-weight: 600; color: #2d3748; }
+.monthly-total-card { background: white; border-radius: 10px; padding: 2rem; text-align: center; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 2rem; }
+.monthly-total-card h3 { color: #4a5568; margin-bottom: 1rem; }
+.monthly-total { font-size: 2.5rem; font-weight: bold; color: #667eea; }
+.calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; background: white; padding: 1.5rem; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+.calendar-header { text-align: center; font-weight: 600; color: #4a5568; padding: 1rem; background: #f7fafc; border-radius: 5px; }
+.calendar-day { min-height: 80px; padding: 0.5rem; border: 1px solid #e2e8f0; border-radius: 5px; background: white; display: flex; flex-direction: column; }
+.calendar-day.empty { border: none; background: transparent; }
+.calendar-day.today { background: #edf2f7; border-color: #667eea; }
+.day-number { font-weight: 600; color: #2d3748; margin-bottom: 0.5rem; }
+.day-total { color: #667eea; font-weight: 600; text-decoration: none; margin-top: auto; }
+.day-total:hover { color: #764ba2; text-decoration: underline; }
+.no-expense { color: #cbd5e0; text-align: center; margin-top: auto; }
+@media (max-width: 768px) {
+    .calendar-grid { gap: 5px; padding: 1rem; }
+    .calendar-day { min-height: 60px; font-size: 0.9rem; }
+}
+</style>
+{% endblock %}

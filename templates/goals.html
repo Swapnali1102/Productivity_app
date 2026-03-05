@@ -1,0 +1,497 @@
+{% extends "base.html" %}
+
+{% block title %}Goals - Personal Productivity Tracker{% endblock %}
+
+{% block content %}
+<div class="goals-page">
+    <div class="page-header">
+        <h2><i class="fas fa-bullseye"></i> Personal Goals</h2>
+        <button class="btn btn-primary" onclick="showModal('addGoalModal')">
+            <i class="fas fa-plus"></i> Add New Goal
+        </button>
+    </div>
+
+    <!-- Add Goal Modal -->
+    <div id="addGoalModal" class="form-modal" style="display: none;">
+        <div class="modal-content">
+            <h3>Add New Goal</h3>
+            <form method="POST" action="{{ url_for('goals.add_goal') }}">
+                <div class="form-group">
+                    <label for="name">Goal Name:</label>
+                    <input type="text" id="name" name="name" required 
+                           placeholder="e.g., Learn Python Programming">
+                </div>
+                <div class="form-group">
+                    <label for="description">Description:</label>
+                    <textarea id="description" name="description" rows="3" 
+                              placeholder="Describe your goal in detail..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="target_date">Target Date (optional):</label>
+                    <input type="date" id="target_date" name="target_date">
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Add Goal</button>
+                    <button type="button" class="btn btn-secondary" onclick="hideModal('addGoalModal')">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Goals Grid -->
+    <div class="goals-container">
+        {% if goals %}
+            <div class="goals-grid">
+                {% for goal in goals %}
+                <div class="goal-card status-{{ goal.status.lower() }}">
+                    <div class="goal-header">
+                        <h4 class="goal-title">{{ goal.name }}</h4>
+                        <div class="goal-status">
+                            <span class="status-badge status-{{ goal.status.lower() }}">
+                                {% if goal.status == 'Active' %}
+                                    <i class="fas fa-play"></i>
+                                {% elif goal.status == 'Completed' %}
+                                    <i class="fas fa-check"></i>
+                                {% else %}
+                                    <i class="fas fa-pause"></i>
+                                {% endif %}
+                                {{ goal.status }}
+                            </span>
+                        </div>
+                    </div>
+
+                    {% if goal.description %}
+                    <div class="goal-description">
+                        {{ goal.description }}
+                    </div>
+                    {% endif %}
+
+                    <div class="goal-progress">
+                        <div class="progress-header">
+                            <span>Progress</span>
+                            <span class="progress-percentage">{{ goal.progress_percentage }}%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: {{ goal.progress_percentage }}%"></div>
+                        </div>
+                    </div>
+
+                    {% if goal.target_date %}
+                    <div class="goal-target">
+                        <i class="fas fa-calendar"></i>
+                        <span>Target: {{ goal.target_date.strftime('%B %d, %Y') }}</span>
+                        {% set days_left = (goal.target_date - today).days if goal.target_date > today else 0 %}
+                        {% if goal.status == 'Active' and days_left > 0 %}
+                            <span class="days-left">({{ days_left }} days left)</span>
+                        {% elif goal.status == 'Active' and days_left <= 0 %}
+                            <span class="overdue">(Overdue)</span>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
+                    <div class="goal-meta">
+                        <span class="created-date">
+                            <i class="fas fa-plus-circle"></i>
+                            Created {{ goal.created_at.strftime('%b %d, %Y') }}
+                        </span>
+                    </div>
+
+                    <div class="goal-actions">
+                        <button class="btn btn-secondary btn-sm" onclick="editGoal({{ goal.id }})">
+                            <i class="fas fa-edit"></i> Edit
+                        </button>
+                        <a href="{{ url_for('goals.delete_goal', goal_id=goal.id) }}" 
+                           class="btn btn-danger btn-sm"
+                           onclick="return confirm('Are you sure you want to delete this goal?')">
+                            <i class="fas fa-trash"></i> Delete
+                        </a>
+                    </div>
+
+                    <!-- Edit Form (Hidden by default) -->
+                    <div id="editForm{{ goal.id }}" class="edit-form" style="display: none;">
+                        <form method="POST" action="{{ url_for('goals.update_goal', goal_id=goal.id) }}">
+                            <div class="form-group">
+                                <label>Goal Name:</label>
+                                <input type="text" name="name" value="{{ goal.name }}" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Description:</label>
+                                <textarea name="description" rows="2">{{ goal.description or '' }}</textarea>
+                            </div>
+                            <div class="form-group">
+                                <label>Target Date:</label>
+                                <input type="date" name="target_date" 
+                                       value="{{ goal.target_date.strftime('%Y-%m-%d') if goal.target_date else '' }}">
+                            </div>
+                            <div class="form-group">
+                                <label>Status:</label>
+                                <select name="status">
+                                    <option value="Active" {% if goal.status == 'Active' %}selected{% endif %}>Active</option>
+                                    <option value="Completed" {% if goal.status == 'Completed' %}selected{% endif %}>Completed</option>
+                                    <option value="Dropped" {% if goal.status == 'Dropped' %}selected{% endif %}>Dropped</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Progress (%):</label>
+                                <input type="range" name="progress" min="0" max="100" 
+                                       value="{{ goal.progress_percentage }}" 
+                                       oninput="updateProgressDisplay(this, {{ goal.id }})">
+                                <span id="progressDisplay{{ goal.id }}">{{ goal.progress_percentage }}%</span>
+                            </div>
+                            <div class="form-actions">
+                                <button type="submit" class="btn btn-primary btn-sm">Update</button>
+                                <button type="button" class="btn btn-secondary btn-sm" onclick="cancelEdit({{ goal.id }})">Cancel</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <i class="fas fa-bullseye"></i>
+                <h3>No goals set yet</h3>
+                <p>Start by setting your first personal goal to track your progress!</p>
+                <button class="btn btn-primary" onclick="showModal('addGoalModal')">
+                    <i class="fas fa-plus"></i> Add Your First Goal
+                </button>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Goals Summary -->
+    {% if goals %}
+    <div class="goals-summary">
+        <div class="summary-card">
+            <h3><i class="fas fa-chart-pie"></i> Goals Summary</h3>
+            <div class="summary-stats">
+                {% set active_goals = goals|selectattr('status', 'equalto', 'Active')|list %}
+                {% set completed_goals = goals|selectattr('status', 'equalto', 'Completed')|list %}
+                {% set dropped_goals = goals|selectattr('status', 'equalto', 'Dropped')|list %}
+                
+                <div class="stat-item">
+                    <span class="stat-number">{{ active_goals|length }}</span>
+                    <span class="stat-label">Active Goals</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-number">{{ completed_goals|length }}</span>
+                    <span class="stat-label">Completed</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-number">{{ dropped_goals|length }}</span>
+                    <span class="stat-label">Dropped</span>
+                </div>
+                <div class="stat-item">
+                    {% set avg_progress = (goals|sum(attribute='progress_percentage') / goals|length) if goals else 0 %}
+                    <span class="stat-number">{{ "%.0f"|format(avg_progress) }}%</span>
+                    <span class="stat-label">Avg Progress</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function editGoal(goalId) {
+    const editForm = document.getElementById(`editForm${goalId}`);
+    const goalCard = editForm.closest('.goal-card');
+    
+    // Hide goal content and show edit form
+    const goalContent = goalCard.querySelector('.goal-actions').previousElementSibling;
+    goalContent.style.display = 'none';
+    goalCard.querySelector('.goal-actions').style.display = 'none';
+    editForm.style.display = 'block';
+}
+
+function cancelEdit(goalId) {
+    const editForm = document.getElementById(`editForm${goalId}`);
+    const goalCard = editForm.closest('.goal-card');
+    
+    // Show goal content and hide edit form
+    const goalContent = goalCard.querySelector('.goal-actions').previousElementSibling;
+    goalContent.style.display = 'block';
+    goalCard.querySelector('.goal-actions').style.display = 'flex';
+    editForm.style.display = 'none';
+}
+
+function updateProgressDisplay(slider, goalId) {
+    document.getElementById(`progressDisplay${goalId}`).textContent = slider.value + '%';
+}
+
+// Set minimum date to today for new goals
+document.getElementById('target_date').min = new Date().toISOString().split('T')[0];
+</script>
+
+<style>
+.goals-page {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.goals-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.goal-card {
+    background: white;
+    border-radius: 10px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    border-left: 4px solid #667eea;
+    transition: transform 0.2s;
+}
+
+.goal-card:hover {
+    transform: translateY(-2px);
+}
+
+.goal-card.status-completed {
+    border-left-color: #48bb78;
+    background: linear-gradient(135deg, #f0fff4 0%, #ffffff 100%);
+}
+
+.goal-card.status-dropped {
+    border-left-color: #f56565;
+    background: linear-gradient(135deg, #fffafa 0%, #ffffff 100%);
+}
+
+.goal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+}
+
+.goal-title {
+    color: #2d3748;
+    margin: 0;
+    flex: 1;
+    margin-right: 1rem;
+}
+
+.status-badge {
+    padding: 0.25rem 0.75rem;
+    border-radius: 15px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.status-badge.status-active {
+    background: #bee3f8;
+    color: #2b6cb0;
+}
+
+.status-badge.status-completed {
+    background: #c6f6d5;
+    color: #22543d;
+}
+
+.status-badge.status-dropped {
+    background: #fed7d7;
+    color: #c53030;
+}
+
+.goal-description {
+    color: #4a5568;
+    margin-bottom: 1rem;
+    line-height: 1.5;
+}
+
+.goal-progress {
+    margin-bottom: 1rem;
+}
+
+.progress-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+    color: #4a5568;
+}
+
+.progress-percentage {
+    font-weight: 600;
+    color: #2d3748;
+}
+
+.progress-bar {
+    background: #e2e8f0;
+    height: 8px;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    background: linear-gradient(90deg, #667eea, #764ba2);
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+.goal-target {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
+    color: #4a5568;
+}
+
+.days-left {
+    color: #667eea;
+    font-weight: 500;
+}
+
+.overdue {
+    color: #e53e3e;
+    font-weight: 500;
+}
+
+.goal-meta {
+    margin-bottom: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #e2e8f0;
+}
+
+.created-date {
+    font-size: 0.8rem;
+    color: #718096;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.goal-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.edit-form {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #e2e8f0;
+}
+
+.edit-form .form-group {
+    margin-bottom: 1rem;
+}
+
+.edit-form label {
+    display: block;
+    margin-bottom: 0.25rem;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #4a5568;
+}
+
+.edit-form input,
+.edit-form select,
+.edit-form textarea {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    font-size: 0.9rem;
+}
+
+.edit-form input[type="range"] {
+    margin-right: 0.5rem;
+}
+
+.goals-summary {
+    margin-top: 2rem;
+}
+
+.summary-card {
+    background: white;
+    border-radius: 10px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.summary-card h3 {
+    margin-bottom: 1.5rem;
+    color: #4a5568;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.summary-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 1rem;
+}
+
+.summary-stats .stat-item {
+    text-align: center;
+    padding: 1rem;
+    background: #f7fafc;
+    border-radius: 8px;
+}
+
+.summary-stats .stat-number {
+    display: block;
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #2d3748;
+}
+
+.summary-stats .stat-label {
+    display: block;
+    font-size: 0.8rem;
+    color: #718096;
+    margin-top: 0.25rem;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 3rem;
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.empty-state i {
+    font-size: 3rem;
+    color: #cbd5e0;
+    margin-bottom: 1rem;
+}
+
+.empty-state h3 {
+    color: #4a5568;
+    margin-bottom: 0.5rem;
+}
+
+.empty-state p {
+    color: #718096;
+    margin-bottom: 1.5rem;
+}
+
+@media (max-width: 768px) {
+    .goals-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .goal-header {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .goal-title {
+        margin-right: 0;
+    }
+    
+    .summary-stats {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+</style>
+{% endblock %}

@@ -1,0 +1,259 @@
+{% extends "base.html" %}
+
+{% block title %}Write Entry - Personal Productivity Tracker{% endblock %}
+
+{% block content %}
+<div class="write-diary-page">
+    <div class="page-header">
+        <h2><i class="fas fa-pen"></i> 
+            {% if existing_entry %}Edit Entry{% else %}Write New Entry{% endif %}
+        </h2>
+        <a href="{{ url_for('diary.diary') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Diary
+        </a>
+    </div>
+
+    <div class="write-form-container">
+        <form method="POST" id="diaryForm" class="diary-form">
+            <div class="form-group">
+                <label for="entry_date">Date:</label>
+                <input type="date" id="entry_date" name="entry_date" 
+                       value="{{ selected_date }}" required>
+            </div>
+
+            <div class="form-group">
+                <label for="mood">Mood:</label>
+                <select id="mood" name="mood" required>
+                    <option value="Happy" {% if existing_entry and existing_entry.mood == 'Happy' %}selected{% endif %}>😊 Happy</option>
+                    <option value="Neutral" {% if existing_entry and existing_entry.mood == 'Neutral' %}selected{% elif not existing_entry %}selected{% endif %}>😐 Neutral</option>
+                    <option value="Sad" {% if existing_entry and existing_entry.mood == 'Sad' %}selected{% endif %}>😢 Sad</option>
+                    <option value="Excited" {% if existing_entry and existing_entry.mood == 'Excited' %}selected{% endif %}>🤩 Excited</option>
+                    <option value="Stressed" {% if existing_entry and existing_entry.mood == 'Stressed' %}selected{% endif %}>😰 Stressed</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="content">Your thoughts for today:</label>
+                <textarea id="content" name="content" rows="15" 
+                          placeholder="What happened today? How are you feeling? What are you grateful for?"
+                          required>{% if existing_entry %}{{ existing_entry.content }}{% endif %}</textarea>
+                <div class="textarea-footer">
+                    <span id="wordCount" class="word-count">0 words</span>
+                    <span class="writing-tip">💡 Tip: Try to write at least 50 words</span>
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> 
+                    {% if existing_entry %}Update Entry{% else %}Save Entry{% endif %}
+                </button>
+                <button type="button" class="btn btn-secondary" onclick="clearForm()">
+                    <i class="fas fa-eraser"></i> Clear
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Writing Prompts -->
+    <div class="writing-prompts">
+        <h3><i class="fas fa-lightbulb"></i> Writing Prompts</h3>
+        <div class="prompts-grid">
+            <div class="prompt-card" onclick="addPromptToEntry(this)">
+                <strong>Gratitude:</strong> What are three things you're grateful for today?
+            </div>
+            <div class="prompt-card" onclick="addPromptToEntry(this)">
+                <strong>Achievement:</strong> What did you accomplish today that you're proud of?
+            </div>
+            <div class="prompt-card" onclick="addPromptToEntry(this)">
+                <strong>Learning:</strong> What did you learn today?
+            </div>
+            <div class="prompt-card" onclick="addPromptToEntry(this)">
+                <strong>Challenge:</strong> What challenge did you face and how did you handle it?
+            </div>
+            <div class="prompt-card" onclick="addPromptToEntry(this)">
+                <strong>Tomorrow:</strong> What are you looking forward to tomorrow?
+            </div>
+            <div class="prompt-card" onclick="addPromptToEntry(this)">
+                <strong>Reflection:</strong> If you could redo one thing today, what would it be?
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Word count functionality
+const contentTextarea = document.getElementById('content');
+const wordCountSpan = document.getElementById('wordCount');
+
+function updateWordCount() {
+    const text = contentTextarea.value.trim();
+    const wordCount = text === '' ? 0 : text.split(/\s+/).length;
+    wordCountSpan.textContent = `${wordCount} words`;
+    
+    // Change color based on word count
+    if (wordCount >= 50) {
+        wordCountSpan.style.color = '#22543d';
+    } else if (wordCount >= 25) {
+        wordCountSpan.style.color = '#c05621';
+    } else {
+        wordCountSpan.style.color = '#c53030';
+    }
+}
+
+contentTextarea.addEventListener('input', updateWordCount);
+
+// Initialize word count
+updateWordCount();
+
+// Auto-save functionality
+let autoSaveTimeout;
+contentTextarea.addEventListener('input', function() {
+    clearTimeout(autoSaveTimeout);
+    autoSaveTimeout = setTimeout(() => {
+        const formData = {
+            entry_date: document.getElementById('entry_date').value,
+            mood: document.getElementById('mood').value,
+            content: contentTextarea.value
+        };
+        localStorage.setItem('diary_draft', JSON.stringify(formData));
+    }, 1000);
+});
+
+// Load draft on page load
+window.addEventListener('load', function() {
+    const draft = localStorage.getItem('diary_draft');
+    if (draft && !{{ 'true' if existing_entry else 'false' }}) {
+        const data = JSON.parse(draft);
+        if (confirm('You have an unsaved draft. Would you like to restore it?')) {
+            document.getElementById('entry_date').value = data.entry_date || '{{ selected_date }}';
+            document.getElementById('mood').value = data.mood || 'Neutral';
+            contentTextarea.value = data.content || '';
+            updateWordCount();
+        }
+    }
+});
+
+// Clear draft on successful submit
+document.getElementById('diaryForm').addEventListener('submit', function() {
+    localStorage.removeItem('diary_draft');
+});
+
+// Clear form function
+function clearForm() {
+    if (confirm('Are you sure you want to clear the form?')) {
+        contentTextarea.value = '';
+        document.getElementById('mood').value = 'Neutral';
+        updateWordCount();
+        localStorage.removeItem('diary_draft');
+    }
+}
+
+// Add prompt to entry
+function addPromptToEntry(promptElement) {
+    const promptText = promptElement.textContent.trim();
+    const currentContent = contentTextarea.value;
+    const newContent = currentContent + (currentContent ? '\n\n' : '') + promptText + '\n';
+    contentTextarea.value = newContent;
+    contentTextarea.focus();
+    updateWordCount();
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown', function(event) {
+    // Ctrl/Cmd + S to save
+    if ((event.ctrlKey || event.metaKey) && event.key === 's') {
+        event.preventDefault();
+        document.getElementById('diaryForm').submit();
+    }
+});
+</script>
+
+<style>
+.write-diary-page {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.write-form-container {
+    background: white;
+    border-radius: 10px;
+    padding: 2rem;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    margin-bottom: 2rem;
+}
+
+.diary-form .form-group {
+    margin-bottom: 1.5rem;
+}
+
+.diary-form textarea {
+    min-height: 300px;
+    resize: vertical;
+    font-family: 'Georgia', serif;
+    line-height: 1.6;
+}
+
+.textarea-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.word-count {
+    font-weight: 600;
+}
+
+.writing-tip {
+    color: #718096;
+}
+
+.writing-prompts {
+    background: white;
+    border-radius: 10px;
+    padding: 2rem;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.writing-prompts h3 {
+    margin-bottom: 1.5rem;
+    color: #4a5568;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.prompts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1rem;
+}
+
+.prompt-card {
+    background: #f7fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.prompt-card:hover {
+    background: #edf2f7;
+    border-color: #cbd5e0;
+    transform: translateY(-1px);
+}
+
+.prompt-card strong {
+    color: #667eea;
+}
+
+@media (max-width: 768px) {
+    .prompts-grid {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+{% endblock %}

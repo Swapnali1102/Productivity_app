@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block title %}Tasks - Personal Productivity Tracker{% endblock %}
+
+{% block content %}
+<div class="tasks-page">
+    <div class="page-header">
+        <h2><i class="fas fa-tasks"></i> Task Management</h2>
+        <button class="btn btn-primary" onclick="showAddForm()">
+            <i class="fas fa-plus"></i> Add New Task
+        </button>
+    </div>
+
+    <!-- Add Task Form -->
+    <div id="addTaskForm" class="form-modal" style="display: none;">
+        <div class="modal-content">
+            <h3>Add New Task</h3>
+            <form method="POST" action="{{ url_for('tasks.add_task') }}">
+                <div class="form-group">
+                    <label for="name">Task Name:</label>
+                    <input type="text" id="name" name="name" required>
+                </div>
+                <div class="form-group">
+                    <label for="category">Category:</label>
+                    <select id="category" name="category">
+                        <option value="Personal">Personal</option>
+                        <option value="Health">Health</option>
+                        <option value="Study">Study</option>
+                        <option value="Work">Work</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="priority">Priority:</label>
+                    <select id="priority" name="priority">
+                        <option value="Low">Low</option>
+                        <option value="Medium">Medium</option>
+                        <option value="High">High</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="time_fixed">Fixed Time (optional):</label>
+                    <input type="time" id="time_fixed" name="time_fixed">
+                </div>
+                <div class="form-group">
+                    <label for="duration_minutes">Duration (minutes, optional):</label>
+                    <input type="number" id="duration_minutes" name="duration_minutes" min="1">
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Add Task</button>
+                    <button type="button" class="btn btn-secondary" onclick="hideAddForm()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tasks List -->
+    <div class="tasks-grid">
+        {% for task in tasks %}
+        <div class="task-card">
+            <div class="task-header">
+                <h4>{{ task.name }}</h4>
+                <div class="task-actions">
+                    <button class="btn-icon" onclick="editTask({{ task.id }})">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <a href="{{ url_for('tasks.delete_task', task_id=task.id) }}" 
+                       class="btn-icon delete" 
+                       onclick="return confirm('Are you sure?')">
+                        <i class="fas fa-trash"></i>
+                    </a>
+                </div>
+            </div>
+            <div class="task-details">
+                <span class="badge badge-{{ task.category.lower() }}">{{ task.category }}</span>
+                <span class="badge badge-priority-{{ task.priority.lower() }}">{{ task.priority }}</span>
+                {% if task.time_fixed %}
+                    <span class="task-time"><i class="fas fa-clock"></i> {{ task.time_fixed }}</span>
+                {% endif %}
+                {% if task.duration_minutes %}
+                    <span class="task-duration"><i class="fas fa-hourglass"></i> {{ task.duration_minutes }}min</span>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="page-actions">
+        <a href="{{ url_for('tasks.habit_grid') }}" class="btn btn-primary">
+            <i class="fas fa-calendar-check"></i> View Habit Tracking Grid
+        </a>
+    </div>
+</div>
+
+<script>
+function showAddForm() {
+    document.getElementById('addTaskForm').style.display = 'block';
+}
+
+function hideAddForm() {
+    document.getElementById('addTaskForm').style.display = 'none';
+}
+
+function editTask(taskId) {
+    // Simple edit implementation - you can enhance this
+    window.location.href = `/tasks/edit/${taskId}`;
+}
+</script>
+{% endblock %}

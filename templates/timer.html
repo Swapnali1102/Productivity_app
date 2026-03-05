@@ -1,0 +1,670 @@
+{% extends "base.html" %}
+
+{% block title %}Focus Timer - Personal Productivity Tracker{% endblock %}
+
+{% block content %}
+<div class="timer-page">
+    <div class="page-header">
+        <h2><i class="fas fa-clock"></i> Focus Timer & Daily Status</h2>
+    </div>
+
+    <div class="timer-container">
+        <!-- Pomodoro Timer -->
+        <div class="card timer-card">
+            <h3><i class="fas fa-play-circle"></i> Pomodoro Timer</h3>
+            
+            <div class="timer-display">
+                <div class="timer-circle">
+                    <div id="timerDisplay" class="timer-text">25:00</div>
+                    <div class="timer-label">Focus Time</div>
+                </div>
+            </div>
+
+            <div class="timer-settings">
+                <div class="form-group">
+                    <label for="timerDuration">Duration (minutes):</label>
+                    <select id="timerDuration">
+                        <option value="25">25 minutes (Pomodoro)</option>
+                        <option value="15">15 minutes (Short)</option>
+                        <option value="30">30 minutes (Extended)</option>
+                        <option value="45">45 minutes (Deep Work)</option>
+                        <option value="60">60 minutes (Long Session)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="linkedTask">Link to Task (optional):</label>
+                    <select id="linkedTask">
+                        <option value="">No specific task</option>
+                        {% for task in tasks %}
+                        <option value="{{ task.id }}">{{ task.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="timer-controls">
+                <button id="startTimer" class="btn btn-primary" onclick="startFocusSession()">
+                    <i class="fas fa-play"></i> Start Session
+                </button>
+                <button id="pauseTimer" class="btn btn-secondary" onclick="pauseTimer()" disabled>
+                    <i class="fas fa-pause"></i> Pause
+                </button>
+                <button id="stopTimer" class="btn btn-danger" onclick="stopTimer()" disabled>
+                    <i class="fas fa-stop"></i> Stop
+                </button>
+                <button id="resetTimer" class="btn btn-tertiary" onclick="resetTimer()">
+                    <i class="fas fa-redo"></i> Reset
+                </button>
+            </div>
+
+            <div class="timer-status" id="timerStatus" style="display: none;">
+                <div class="status-message">
+                    <i class="fas fa-info-circle"></i>
+                    <span id="statusText">Session in progress...</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Today's Sessions -->
+        <div class="card sessions-card">
+            <h3><i class="fas fa-history"></i> Today's Sessions</h3>
+            
+            <div class="sessions-summary">
+                {% set completed_sessions = sessions|selectattr('completed', 'equalto', true)|list %}
+                <div class="summary-stat">
+                    <span class="stat-number">{{ completed_sessions|length }}</span>
+                    <span class="stat-label">Completed Sessions</span>
+                </div>
+                <div class="summary-stat">
+                    {% set total_minutes = completed_sessions|sum(attribute='duration_minutes') %}
+                    <span class="stat-number">{{ total_minutes }}</span>
+                    <span class="stat-label">Minutes Focused</span>
+                </div>
+            </div>
+
+            <div class="sessions-list">
+                {% if sessions %}
+                    {% for session in sessions %}
+                    <div class="session-item {% if session.completed %}completed{% else %}incomplete{% endif %}">
+                        <div class="session-info">
+                            <div class="session-duration">
+                                <i class="fas fa-clock"></i>
+                                {{ session.duration_minutes }} min
+                            </div>
+                            {% if session.task_name %}
+                            <div class="session-task">
+                                <i class="fas fa-tasks"></i>
+                                {{ session.task_name }}
+                            </div>
+                            {% endif %}
+                            <div class="session-time">
+                                {{ session.created_at.strftime('%I:%M %p') }}
+                            </div>
+                        </div>
+                        <div class="session-status">
+                            {% if session.completed %}
+                                <i class="fas fa-check-circle completed-icon"></i>
+                            {% else %}
+                                <i class="fas fa-clock incomplete-icon"></i>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-sessions">
+                        <i class="fas fa-clock"></i>
+                        <p>No focus sessions today. Start your first session!</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Daily Status Tracker -->
+    <div class="card daily-status-card">
+        <h3><i class="fas fa-heart"></i> Daily Status Check-in</h3>
+        
+        <form id="dailyStatusForm" class="status-form">
+            <div class="status-grid">
+                <div class="form-group">
+                    <label for="mood">How are you feeling today?</label>
+                    <div class="mood-selector">
+                        <input type="radio" id="mood-happy" name="mood" value="Happy">
+                        <label for="mood-happy" class="mood-option">
+                            <span class="mood-emoji">😊</span>
+                            <span class="mood-label">Happy</span>
+                        </label>
+
+                        <input type="radio" id="mood-excited" name="mood" value="Excited">
+                        <label for="mood-excited" class="mood-option">
+                            <span class="mood-emoji">🤩</span>
+                            <span class="mood-label">Excited</span>
+                        </label>
+
+                        <input type="radio" id="mood-neutral" name="mood" value="Neutral" checked>
+                        <label for="mood-neutral" class="mood-option">
+                            <span class="mood-emoji">😐</span>
+                            <span class="mood-label">Neutral</span>
+                        </label>
+
+                        <input type="radio" id="mood-stressed" name="mood" value="Stressed">
+                        <label for="mood-stressed" class="mood-option">
+                            <span class="mood-emoji">😰</span>
+                            <span class="mood-label">Stressed</span>
+                        </label>
+
+                        <input type="radio" id="mood-sad" name="mood" value="Sad">
+                        <label for="mood-sad" class="mood-option">
+                            <span class="mood-emoji">😢</span>
+                            <span class="mood-label">Sad</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="energy_level">Energy Level:</label>
+                    <div class="level-selector">
+                        <input type="range" id="energy_level" name="energy_level" min="1" max="5" value="3">
+                        <div class="level-labels">
+                            <span>Low</span>
+                            <span id="energyValue">3</span>
+                            <span>High</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="stress_level">Stress Level:</label>
+                    <div class="level-selector">
+                        <input type="range" id="stress_level" name="stress_level" min="1" max="5" value="3">
+                        <div class="level-labels">
+                            <span>Low</span>
+                            <span id="stressValue">3</span>
+                            <span>High</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Save Daily Status
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+let timerInterval;
+let currentSessionId = null;
+let timerSeconds = 0;
+let isTimerRunning = false;
+let isPaused = false;
+
+// Timer functionality
+function startFocusSession() {
+    const duration = parseInt(document.getElementById('timerDuration').value);
+    const taskId = document.getElementById('linkedTask').value || null;
+    
+    // Start session in database
+    fetch('/timer/start_session', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            duration: duration,
+            task_id: taskId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            currentSessionId = data.session_id;
+            startTimer(duration * 60); // Convert to seconds
+        }
+    });
+}
+
+function startTimer(seconds) {
+    if (isTimerRunning && !isPaused) return;
+    
+    if (!isPaused) {
+        timerSeconds = seconds;
+    }
+    
+    isTimerRunning = true;
+    isPaused = false;
+    
+    timerInterval = setInterval(() => {
+        timerSeconds--;
+        updateTimerDisplay();
+        
+        if (timerSeconds <= 0) {
+            completeSession();
+        }
+    }, 1000);
+    
+    updateTimerControls();
+    showTimerStatus('Session in progress...');
+}
+
+function pauseTimer() {
+    if (!isTimerRunning) return;
+    
+    clearInterval(timerInterval);
+    isTimerRunning = false;
+    isPaused = true;
+    
+    updateTimerControls();
+    showTimerStatus('Session paused');
+}
+
+function stopTimer() {
+    clearInterval(timerInterval);
+    isTimerRunning = false;
+    isPaused = false;
+    currentSessionId = null;
+    
+    updateTimerControls();
+    hideTimerStatus();
+}
+
+function resetTimer() {
+    stopTimer();
+    const duration = parseInt(document.getElementById('timerDuration').value);
+    timerSeconds = duration * 60;
+    updateTimerDisplay();
+}
+
+function completeSession() {
+    if (currentSessionId) {
+        fetch('/timer/complete_session', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                session_id: currentSessionId
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showSessionComplete();
+                location.reload(); // Refresh to show updated sessions
+            }
+        });
+    }
+    
+    stopTimer();
+}
+
+function updateTimerDisplay() {
+    const minutes = Math.floor(timerSeconds / 60);
+    const seconds = timerSeconds % 60;
+    const display = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    
+    document.getElementById('timerDisplay').textContent = display;
+    
+    // Update page title
+    if (isTimerRunning) {
+        document.title = `${display} - Focus Timer`;
+    } else {
+        document.title = 'Focus Timer - Personal Productivity Tracker';
+    }
+}
+
+function updateTimerControls() {
+    document.getElementById('startTimer').disabled = isTimerRunning;
+    document.getElementById('pauseTimer').disabled = !isTimerRunning;
+    document.getElementById('stopTimer').disabled = !isTimerRunning && !isPaused;
+}
+
+function showTimerStatus(message) {
+    document.getElementById('statusText').textContent = message;
+    document.getElementById('timerStatus').style.display = 'block';
+}
+
+function hideTimerStatus() {
+    document.getElementById('timerStatus').style.display = 'none';
+}
+
+function showSessionComplete() {
+    if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification('Focus Session Complete!', {
+            body: 'Great job! Time for a break.',
+            icon: '/static/favicon.ico'
+        });
+    }
+    
+    showTimerStatus('Session completed! Great work! 🎉');
+    setTimeout(hideTimerStatus, 5000);
+}
+
+// Daily Status Form
+document.getElementById('dailyStatusForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    
+    fetch('/timer/daily_status', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Daily status saved successfully!');
+        }
+    });
+});
+
+// Range slider updates
+document.getElementById('energy_level').addEventListener('input', function() {
+    document.getElementById('energyValue').textContent = this.value;
+});
+
+document.getElementById('stress_level').addEventListener('input', function() {
+    document.getElementById('stressValue').textContent = this.value;
+});
+
+// Initialize timer display
+document.addEventListener('DOMContentLoaded', function() {
+    resetTimer();
+    
+    // Request notification permission
+    if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission();
+    }
+});
+</script>
+
+<style>
+.timer-page {
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
+.timer-container {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.timer-card {
+    text-align: center;
+}
+
+.timer-display {
+    margin: 2rem 0;
+}
+
+.timer-circle {
+    width: 200px;
+    height: 200px;
+    border: 8px solid #e2e8f0;
+    border-radius: 50%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    margin: 0 auto;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    position: relative;
+}
+
+.timer-text {
+    font-size: 2.5rem;
+    font-weight: bold;
+    font-family: 'Courier New', monospace;
+}
+
+.timer-label {
+    font-size: 0.9rem;
+    opacity: 0.9;
+    margin-top: 0.5rem;
+}
+
+.timer-settings {
+    margin: 1.5rem 0;
+    text-align: left;
+}
+
+.timer-controls {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.timer-status {
+    margin-top: 1rem;
+    padding: 1rem;
+    background: #e6fffa;
+    border-radius: 8px;
+    border-left: 4px solid #38b2ac;
+}
+
+.status-message {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #234e52;
+}
+
+.sessions-card {
+    height: fit-content;
+}
+
+.sessions-summary {
+    display: flex;
+    justify-content: space-around;
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    background: #f7fafc;
+    border-radius: 8px;
+}
+
+.summary-stat {
+    text-align: center;
+}
+
+.summary-stat .stat-number {
+    display: block;
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #2d3748;
+}
+
+.summary-stat .stat-label {
+    display: block;
+    font-size: 0.8rem;
+    color: #718096;
+}
+
+.sessions-list {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.session-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    border-bottom: 1px solid #e2e8f0;
+    transition: background-color 0.2s;
+}
+
+.session-item:hover {
+    background-color: #f7fafc;
+}
+
+.session-item.completed {
+    background-color: #f0fff4;
+}
+
+.session-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.session-duration {
+    font-weight: 600;
+    color: #2d3748;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.session-task {
+    color: #4a5568;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.session-time {
+    color: #718096;
+    font-size: 0.8rem;
+}
+
+.completed-icon {
+    color: #38a169;
+    font-size: 1.2rem;
+}
+
+.incomplete-icon {
+    color: #ed8936;
+    font-size: 1.2rem;
+}
+
+.empty-sessions {
+    text-align: center;
+    padding: 2rem;
+    color: #718096;
+}
+
+.empty-sessions i {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+    display: block;
+}
+
+.daily-status-card {
+    grid-column: 1 / -1;
+}
+
+.status-form {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.status-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr;
+    gap: 2rem;
+    margin-bottom: 2rem;
+}
+
+.mood-selector {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.mood-selector input[type="radio"] {
+    display: none;
+}
+
+.mood-option {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 1rem;
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    min-width: 80px;
+}
+
+.mood-option:hover {
+    border-color: #cbd5e0;
+    background-color: #f7fafc;
+}
+
+.mood-selector input[type="radio"]:checked + .mood-option {
+    border-color: #667eea;
+    background-color: #edf2f7;
+}
+
+.mood-emoji {
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.mood-label {
+    font-size: 0.8rem;
+    color: #4a5568;
+}
+
+.level-selector {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.level-selector input[type="range"] {
+    width: 100%;
+}
+
+.level-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    color: #718096;
+}
+
+.level-labels span:nth-child(2) {
+    font-weight: bold;
+    color: #2d3748;
+}
+
+@media (max-width: 768px) {
+    .timer-container {
+        grid-template-columns: 1fr;
+    }
+    
+    .timer-controls {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .timer-controls .btn {
+        width: 200px;
+    }
+    
+    .status-grid {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
+    
+    .mood-selector {
+        justify-content: center;
+    }
+    
+    .sessions-summary {
+        flex-direction: column;
+        gap: 1rem;
+    }
+}
+</style>
+{% endblock %}

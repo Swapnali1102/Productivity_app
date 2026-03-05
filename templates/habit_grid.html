@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}Habit Grid - Personal Productivity Tracker{% endblock %}
+
+{% block content %}
+<div class="habit-grid-page">
+    <div class="page-header">
+        <h2><i class="fas fa-calendar-check"></i> Habit Tracking Grid</h2>
+        <div class="month-navigation">
+            <a href="{{ url_for('tasks.habit_grid', year=year, month=month-1 if month > 1 else 12) }}" class="btn btn-secondary">
+                <i class="fas fa-chevron-left"></i> Previous
+            </a>
+            <span class="current-month">{{ month_name }} {{ year }}</span>
+            <a href="{{ url_for('tasks.habit_grid', year=year, month=month+1 if month < 12 else 1) }}" class="btn btn-secondary">
+                Next <i class="fas fa-chevron-right"></i>
+            </a>
+        </div>
+    </div>
+
+    <div class="habit-grid-container">
+        <table class="habit-grid">
+            <thead>
+                <tr>
+                    <th class="task-column">Task</th>
+                    {% for date in month_dates %}
+                    <th class="date-column">{{ date.day }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for task in tasks %}
+                <tr>
+                    <td class="task-name">
+                        <span>{{ task.name }}</span>
+                        <small class="task-category">{{ task.category }}</small>
+                    </td>
+                    {% for date in month_dates %}
+                    <td class="completion-cell">
+                        {% set completion_key = task.id ~ '_' ~ date %}
+                        <input type="checkbox" 
+                               class="completion-checkbox"
+                               data-task-id="{{ task.id }}"
+                               data-date="{{ date }}"
+                               {% if completions.get(completion_key) %}checked{% endif %}
+                               onchange="toggleCompletion(this)">
+                    </td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="grid-legend">
+        <div class="legend-item">
+            <input type="checkbox" checked disabled> Completed
+        </div>
+        <div class="legend-item">
+            <input type="checkbox" disabled> Not Completed
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleCompletion(checkbox) {
+    const taskId = checkbox.dataset.taskId;
+    const date = checkbox.dataset.date;
+    const completed = checkbox.checked;
+
+    fetch('/tasks/toggle_completion', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            task_id: taskId,
+            date: date,
+            completed: completed
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (!data.success) {
+            checkbox.checked = !completed; // Revert on error
+            alert('Failed to update completion status');
+        }
+    })
+    .catch(error => {
+        checkbox.checked = !completed; // Revert on error
+        alert('Error updating completion status');
+    });
+}
+</script>
+{% endblock %}

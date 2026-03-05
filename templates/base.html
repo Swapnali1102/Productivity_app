@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#667eea">
+    <title>{% block title %}Personal Productivity Tracker{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <h1><i class="fas fa-chart-line"></i> Productivity Tracker</h1>
+            <ul class="nav-menu">
+                <li><a href="{{ url_for('dashboard.dashboard') }}" class="nav-link"><i class="fas fa-home"></i> Dashboard</a></li>
+                <li><a href="{{ url_for('tasks.tasks') }}" class="nav-link"><i class="fas fa-tasks"></i> Tasks</a></li>
+                <li><a href="{{ url_for('tasks.habit_grid') }}" class="nav-link"><i class="fas fa-calendar-check"></i> Habit Grid</a></li>
+                <li><a href="{{ url_for('diary.diary') }}" class="nav-link"><i class="fas fa-book"></i> Diary</a></li>
+                <li><a href="{{ url_for('analytics.analytics') }}" class="nav-link"><i class="fas fa-chart-bar"></i> Analytics</a></li>
+                <li><a href="{{ url_for('goals.goals') }}" class="nav-link"><i class="fas fa-bullseye"></i> Goals</a></li>
+                <li><a href="{{ url_for('timer.timer') }}" class="nav-link"><i class="fas fa-clock"></i> Timer</a></li>
+                <li><a href="{{ url_for('expenses.expenses') }}" class="nav-link"><i class="fas fa-wallet"></i> Expenses</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-messages">
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </main>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>
